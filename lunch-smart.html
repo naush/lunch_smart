@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>幼兒便當智能打包助手 (穩定修復版)</title>
+  <style>
+    :root {
+      --primary: #3182ce;
+      --hot: #e53e3e;
+      --cold: #319795;
+      --snack: #d69e2e;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #2d3748;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      padding-bottom: 80px;
+    }
+    header { text-align: center; margin-bottom: 12px; }
+    h1 { font-size: 1.35rem; margin: 0 0 4px 0; color: #1a202c; }
+    p.sub { font-size: 0.8rem; color: #718096; margin: 0; }
+
+    /* 頂部錦囊指南 */
+    .strategy-banner {
+      background: #ebf8ff;
+      border: 1px solid #bee3f8;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: #2b6cb0;
+    }
+    .strategy-content {
+      display: none;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #4a5568;
+    }
+    .strategy-content.open { display: block; }
+    .strategy-item { margin-bottom: 8px; }
+    .strategy-item strong { color: #2d3748; }
+
+    /* 冷/熱主餐模式切換 */
+    .mode-toggle-container {
+      background: #edf2f7;
+      padding: 4px;
+      border-radius: 12px;
+      display: flex;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+    .mode-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 9px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      color: #718096;
+      background: transparent;
+      transition: all 0.2s;
+    }
+    .mode-btn.active.hot-mode {
+      background: white;
+      color: var(--hot);
+      box-shadow: 0 2px 5px rgba(229,62,62,0.2);
+    }
+    .mode-btn.active.cold-mode {
+      background: white;
+      color: var(--cold);
+      box-shadow: 0 2px 5px rgba(49,151,149,0.2);
+    }
+
+    /* 食物卡片 */
+    .input-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      margin-bottom: 16px;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .action-links button {
+      font-size: 0.78rem;
+      color: var(--primary);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-weight: 600;
+      padding: 2px 6px;
+    }
+
+    /* 新增食材輸入列 */
+    .add-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    select {
+      padding: 8px;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      background: white;
+      font-size: 0.8rem;
+    }
+    .btn-add {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .category-title {
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: #4a5568;
+      margin: 10px 0 6px;
+    }
+    .chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .chip {
+      background: #edf2f7;
+      padding: 6px 12px;
+      border-radius: 18px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+    }
+    .chip.active {
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+    .chip .del-x {
+      margin-left: 6px;
+      color: #e53e3e;
+      font-weight: bold;
+      display: none;
+    }
+    body.is-editing .chip .del-x { display: inline; }
+    body.is-editing .chip { background: #feebc8; color: #744210; }
+    body.is-editing .chip.active { background: #dd6b20; color: #ffffff; }
+
+    /* 生成按鈕 */
+    .btn-generate {
+      width: 100%;
+      background: #38a169;
+      color: white;
+      border: none;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      margin-bottom: 16px;
+      cursor: pointer;
+      box-shadow: 0 3px 6px rgba(56,161,105,0.25);
+    }
+
+    /* 警告與提醒卡片 */
+    .warning-box {
+      background: #fffaf0;
+      border-left: 4px solid #dd6b20;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: #9c4221;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+
+    /* 營養檢查卡 */
+    .nutrition-card {
+      background: #ebf8ff;
+      border: 1px solid #bee3f8;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .nutrition-title { font-weight: 700; color: #2b6cb0; font-size: 0.9rem; }
+    .nutrition-status {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin: 8px 0;
+      text-align: center;
+      font-size: 0.75rem;
+    }
+    .nutri-pill {
+      padding: 5px 2px;
+      border-radius: 6px;
+      background: white;
+      border: 1px solid #e2e8f0;
+    }
+    .nutri-pill.ok { border-color: #48bb78; color: #276749; background: #f0fff4; font-weight: bold; }
+    .nutri-pill.missing { border-color: #f56565; color: #c53030; background: #fff5f5; }
+
+    /* 結果卡 */
+    .res-card {
+      background: white;
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+      border-left: 5px solid #cbd5e0;
+      margin-bottom: 12px;
+    }
+    .res-card.type-breakfast { border-color: #ed8936; }
+    .res-card.type-hot { border-color: var(--hot); }
+    .res-card.type-cold { border-color: var(--cold); }
+    .res-card.type-snack { border-color: var(--snack); }
+    .res-card.type-gobe { border-color: #9f7aea; }
+    .res-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .res-title { font-weight: 700; font-size: 0.95rem; }
+    .res-tag {
+      background: #edf2f7;
+      color: #4a5568;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .res-items { font-size: 0.95rem; color: #2d3748; }
+    .res-tip { font-size: 0.78rem; color: #718096; margin-top: 5px; line-height: 1.4; }
+    .hot-layer-guide {
+      background: #fff5f5;
+      border: 1px dashed #feb2b2;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #9b2c2c;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍱 幼兒便當打包助手</h1>
+    <p class="sub">冷熱模式切換 ｜ 份量外掛平衡 ｜ 智能容器分配</p>
+  </header>
+
+  <!-- 1. 份量與裝盤錦囊 -->
+  <div class="strategy-banner" onclick="toggleStrategy()">
+    <span>💡 點我看：Thermos 保溫罐裝得少？4 大解法錦囊</span>
+    <span id="stratArrow">▼</span>
+  </div>
+  <div class="strategy-content" id="stratContent">
+    <div class="strategy-item">
+      <strong>1. 外掛路線（不要全塞保溫罐）</strong>：Thermos 10oz (1.25 Cup) 專心裝熱飯/熱肉；清脆蔬菜（小黃瓜、毛豆、玉米筍）改裝 <code>tanjiae 不鏽鋼盒</code>，避免蔬菜悶黃變軟，菜色立刻從 1 種變 3 種！
+    </div>
+    <div class="strategy-item">
+      <strong>2. 分層鋪法（Layering）</strong>：底層 1/2 鋪熱飯/麵，頂層鋪香烤鮭魚塊或肉丸。中午一開蓋就像日式丼飯，小孩胃口大開。
+    </div>
+    <div class="strategy-item">
+      <strong>3. 一鍋到底高密度食材</strong>：煮炊飯（紅蘿蔔+香菇+毛豆+雞肉丁拌飯）或選短形螺旋麵，罐內無死角、高密度、熱量足。
+    </div>
+    <div class="strategy-item">
+      <strong>4. 下午點心做熱量平衡</strong>：中午溫熱好吞嚥吃 7-8 分飽，下午靠 <code>b.box (1.75 Cup)</code> 大點心盒補足熱量。
+    </div>
+  </div>
+
+  <!-- 2. 冷/熱模式切換 -->
+  <div class="mode-toggle-container">
+    <button class="mode-btn active hot-mode" id="btnModeHot" onclick="setMainMode('HOT')">🍲 今日主推：熱食便當 (Thermos)</button>
+    <button class="mode-btn cold-mode" id="btnModeCold" onclick="setMainMode('COLD')">🍱 今日主推：冷食便當 (Bentgo)</button>
+  </div>
+
+  <!-- 3. 食物庫面板 -->
+  <div class="input-card">
+    <div class="top-bar">
+      <span style="font-size:0.85rem; font-weight:700; color:#4a5568;">點選今日食材：</span>
+      <div class="action-links">
+        <button onclick="toggleEditMode()" id="editBtn">⚙️ 刪除/管理</button>
+        <button onclick="resetDefaults()" style="color:#e53e3e;">🔄 重置還原</button>
+      </div>
+    </div>
+
+    <!-- 自訂新增欄位 -->
+    <div class="add-row">
+      <input type="text" id="customFoodName" placeholder="新增自訂食物 (如: 玉子燒)">
+      <select id="customFoodCat">
+        <option value="PROTEIN">蛋白質</option>
+        <option value="GRAIN">穀物澱粉</option>
+        <option value="FRUIT">水果</option>
+        <option value="DRIED_FRUIT">果乾</option>
+        <option value="VEG">蔬菜</option>
+        <option value="SNACK">零嘴點心</option>
+        <option value="DAIRY">乳品起司</option>
+      </select>
+      <button class="btn-add" onclick="addCustomFood()">新增</button>
+    </div>
+
+    <!-- 食物標籤群組 -->
+    <div class="category-title">🍗 蛋白質 / 肉蛋 (¼ 盤)</div>
+    <div class="chip-container" id="proteinPool"></div>
+
+    <div class="category-title">🍞 穀物主食 (¼ 盤)</div>
+    <div class="chip-container" id="grainPool"></div>
+
+    <div class="category-title">🍎 水果 ＆ 🥦 蔬菜 (½ 盤)</div>
+    <div class="chip-container" id="fruitVegPool"></div>
+
+    <div class="category-title">🧀 乳品起司 ＆ 🥨 點心零嘴</div>
+    <div class="chip-container" id="snackPool"></div>
+  </div>
+
+  <button class="btn-generate" onclick="generatePlan()">✨ 生成今日打包容器指南</button>
+
+  <div id="warningArea"></div>
+  <div id="nutritionResult"></div>
+  <div id="packResult"></div>
+
+  <script>
+    // 官方完整預設食材清單
+    const defaultFoodList = [
+      // 蛋白質
+      { name: "烤鮭魚", cat: "PROTEIN", flex: true },
+      { name: "烤雞肉塊", cat: "PROTEIN", flex: true },
+      { name: "水煮蛋", cat: "PROTEIN", flex: true },
+      { name: "滷肉", cat: "PROTEIN", mustHot: true },
+      { name: "燉牛肉", cat: "PROTEIN", mustHot: true },
+      // 穀物澱粉
+      { name: "白飯", cat: "GRAIN", flex: true },
+      { name: "烏龍麵", cat: "GRAIN", flex: true },
+      { name: "義大利麵", cat: "GRAIN", flex: true },
+      { name: "烤地瓜", cat: "GRAIN", flex: true },
+      { name: "Mac & Cheese", cat: "GRAIN", mustHot: true },
+      { name: "吐司", cat: "GRAIN", breakfastOnly: true },
+      { name: "饅頭", cat: "GRAIN", breakfastOnly: true },
+      // 新鮮水果
+      { name: "草莓", cat: "FRUIT" },
+      { name: "葡萄", cat: "FRUIT" },
+      { name: "藍莓", cat: "FRUIT" },
+      { name: "橘子", cat: "FRUIT" },
+      { name: "香蕉", cat: "FRUIT", breakfastOnly: true },
+      // 果乾 (徹底分開)
+      { name: "草莓乾", cat: "DRIED_FRUIT" },
+      { name: "藍莓乾", cat: "DRIED_FRUIT" },
+      // 蔬菜
+      { name: "小黃瓜片", cat: "VEG" },
+      { name: "玉米筍", cat: "VEG" },
+      // 點心與乳品
+      { name: "Goldfish 餅乾", cat: "SNACK" },
+      { name: "Cheerios 麥圈", cat: "SNACK" },
+      { name: "小餅乾", cat: "SNACK" },
+      { name: "起司條", cat: "DAIRY" }
+    ];
+
+    // 快取檢查修復：若舊資料為空或異常，強制載入預設清單
+    let foods = [];
+    try {
+      const stored = localStorage.getItem('lunch_app_foods_v6');
+      if (stored) {
+        foods = JSON.parse(stored);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+    if (!foods || foods.length === 0) {
+      foods = JSON.parse(JSON.stringify(defaultFoodList));
+      localStorage.setItem('lunch_app_foods_v6', JSON.stringify(foods));
+    }
+
+    let selected = new Set();
+    let currentMode = "HOT";
+    let isEditing = false;
+
+    // 展開/收合錦囊
+    function toggleStrategy() {
+      const box = document.getElementById("stratContent");
+      const arrow = document.getElementById("stratArrow");
+      box.classList.toggle("open");
+      arrow.innerText = box.classList.contains("open") ? "▲" : "▼";
+    }
+
+    // 切換冷熱主餐模式
+    function setMainMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnModeHot').classList.toggle('active', mode === 'HOT');
+      document.getElementById('btnModeCold').classList.toggle('active', mode === 'COLD');
+      if (selected.size > 0) generatePlan();
+    }
+
+    // 切換管理/刪除模式
+    function toggleEditMode() {
+      isEditing = !isEditing;
+      document.body.classList.toggle('is-editing', isEditing);
+      document.getElementById('editBtn').innerText = isEditing ? "✅ 完成" : "⚙️ 刪除/管理";
+      renderPools();
+    }
+
+    // 重置還原預設值
+    function resetDefaults() {
+      if (confirm("確定要還原成所有預設食物清單嗎？")) {
+        foods = JSON.parse(JSON.stringify(defaultFoodList));
+        selected.clear();
+        localStorage.setItem('lunch_app_foods_v6', JSON.stringify(foods));
+        renderPools();
+        document.getElementById("warningArea").innerHTML = "";
+        document.getElementById("nutritionResult").innerHTML = "";
+        document.getElementById("packResult").innerHTML = "";
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // 自訂新增食物
+    function addCustomFood() {
+      const input = document.getElementById("customFoodName");
+      const cat = document.getElementById("customFoodCat").value;
+      const name = input.value.trim();
+      if (!name) return;
+
+      if (foods.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+        alert("此食材已在清單中！");
+        return;
+      }
+
+      foods.push({ name, cat, flex: true });
+      selected.add(name);
+      localStorage.setItem('lunch_app_foods_v6', JSON.stringify(foods));
+      input.value = "";
+      renderPools();
+      generatePlan();
+    }
+
+    // 刪除食物標籤
+    function removeFood(e, idx) {
+      e.stopPropagation();
+      selected.delete(foods[idx].name);
+      foods.splice(idx, 1);
+      localStorage.setItem('lunch_app_foods_v6', JSON.stringify(foods));
+      renderPools();
+      if (document.getElementById("packResult").innerHTML.trim() !== "") {
+        generatePlan();
+      }
+    }
+
+    // 渲染食物標籤群組 (保證絕對渲染)
+    function renderPools() {
+      const pPool = document.getElementById("proteinPool");
+      const gPool = document.getElementById("grainPool");
+      const fvPool = document.getElementById("fruitVegPool");
+      const sPool = document.getElementById("snackPool");
+
+      pPool.innerHTML = ""; gPool.innerHTML = ""; fvPool.innerHTML = ""; sPool.innerHTML = "";
+
+      foods.forEach((item, idx) => {
+        const chip = document.createElement("div");
+        chip.className = `chip ${selected.has(item.name) ? 'active' : ''}`;
+        chip.innerHTML = `${escapeHtml(item.name)} <span class="del-x" onclick="removeFood(event, ${idx})">×</span>`;
+        chip.onclick = () => {
+          if (isEditing) return;
+          if (selected.has(item.name)) selected.delete(item.name);
+          else selected.add(item.name);
+          renderPools();
+          if (document.getElementById("packResult").innerHTML.trim() !== "") {
+            generatePlan();
+          }
+        };
+
+        if (item.cat === "PROTEIN") pPool.appendChild(chip);
+        else if (item.cat === "GRAIN") gPool.appendChild(chip);
+        else if (item.cat === "FRUIT" || item.cat === "VEG") fvPool.appendChild(chip);
+        else sPool.appendChild(chip);
+      });
+    }
+
+    // 生成打包指南
+    function generatePlan() {
+      const activeList = foods.filter(f => selected.has(f.name));
+      const warnDiv = document.getElementById("warningArea");
+      const nutDiv = document.getElementById("nutritionResult");
+      const packDiv = document.getElementById("packResult");
+      warnDiv.innerHTML = ""; nutDiv.innerHTML = ""; packDiv.innerHTML = "";
+
+      if (activeList.length === 0) {
+        nutDiv.innerHTML = `<div style="text-align:center;color:#a0aec0;padding:20px;">請先點選今天想帶的食材！</div>`;
+        return;
+      }
+
+      // 溫控警告檢查
+      let warnings = [];
+      const mustHotSelected = activeList.filter(f => f.mustHot);
+      if (currentMode === "COLD" && mustHotSelected.length > 0) {
+        warnings.push(`⚠️ <strong>溫控提醒</strong>：目前切換在「冷便當」，但選了 <strong>${mustHotSelected.map(f=>escapeHtml(f.name)).join('、')}</strong>。動物油脂冷卻容易凝固，強烈建議切換為 🍲 熱食保溫模式！`);
+      }
+      if (warnings.length > 0) {
+        warnDiv.innerHTML = `<div class="warning-box">${warnings.join("<br>")}</div>`;
+      }
+
+      // MyPlate 檢查
+      const grains = activeList.filter(f => f.cat === "GRAIN");
+      const proteins = activeList.filter(f => f.cat === "PROTEIN");
+      const fruits = activeList.filter(f => f.cat === "FRUIT");
+      const vegs = activeList.filter(f => f.cat === "VEG");
+
+      const hasSweetPotato = activeList.some(f => f.name.includes("地瓜"));
+      const vegOk = vegs.length > 0 || hasSweetPotato;
+      const vegStatusText = vegs.length > 0 ? '✔' : (hasSweetPotato ? '✔ (地瓜代)' : '缺 (可地瓜代)');
+
+      nutDiv.innerHTML = `
+        <div class="nutrition-card">
+          <div class="nutrition-title">🥗 USDA MyPlate 均衡盤檢查</div>
+          <div class="nutrition-status">
+            <div class="nutri-pill ${grains.length>0?'ok':'missing'}">全穀澱粉 ${grains.length>0?'✔':'缺'}</div>
+            <div class="nutri-pill ${proteins.length>0?'ok':'missing'}">優質蛋白 ${proteins.length>0?'✔':'缺'}</div>
+            <div class="nutri-pill ${fruits.length>0?'ok':'missing'}">水果 ${fruits.length>0?'✔':'缺'}</div>
+            <div class="nutri-pill ${vegOk?'ok':'missing'}">蔬菜 ${vegStatusText}</div>
+          </div>
+        </div>
+      `;
+
+      // 容器指派分流
+      let breakfastItems = [];
+      const lunchGrains = grains.filter(g => !g.breakfastOnly);
+      const lunchProteins = proteins.filter(p => !p.breakfastOnly);
+
+      activeList.forEach(f => {
+        if (f.breakfastOnly) {
+          breakfastItems.push(f.name);
+        }
+      });
+
+      let html = "";
+
+      // 車上早餐
+      if (breakfastItems.length > 0) {
+        html += `
+          <div class="res-card type-breakfast">
+            <div class="res-header">
+              <span class="res-title">🚗 車上早餐</span>
+              <span class="res-tag">容器: Stasher 矽膠袋</span>
+            </div>
+            <div class="res-items">${breakfastItems.map(escapeHtml).join("、 ")}</div>
+            <div class="res-tip">★ 單手好拿、車上好吞嚥，校門口直接收回帶回家洗。</div>
+          </div>
+        `;
+      }
+
+      // 中午主餐與冷/熱模式
+      const mainItems = [...lunchProteins.map(p=>p.name), ...lunchGrains.map(g=>g.name)];
+      if (currentMode === "HOT") {
+        if (mainItems.length > 0) {
+          html += `
+            <div class="res-card type-hot">
+              <div class="res-header">
+                <span class="res-title">🍲 中午主餐（熱食保溫集中裝）</span>
+                <span class="res-tag">容器: Thermos 10oz 保溫罐</span>
+              </div>
+              <div class="res-items"><strong>${mainItems.map(escapeHtml).join(" ＋ ")}</strong></div>
+              <div class="hot-layer-guide">
+                <strong>🍱 10oz 完美分層裝罐教學：</strong><br>
+                • 底層 1/2 裝熱飯或麵條。<br>
+                • 頂層鋪上主菜（如烤鮭魚塊、燉肉丁），開蓋賣相極佳！<br>
+                • <em>記得先用滾水預熱罐子 5 分鐘，套入 Bumkins Large 大防水袋。</em>
+              </div>
+            </div>
+          `;
+        }
+
+        // 蔬菜外掛（僅熱食模式需外掛，避免在保溫罐內悶黃）
+        if (vegs.length > 0) {
+          html += `
+            <div class="res-card type-snack">
+              <div class="res-header">
+                <span class="res-title">🥦 外掛鮮脆配菜（不入保溫罐）</span>
+                <span class="res-tag">容器: tanjiae 不鏽鋼盒</span>
+              </div>
+              <div class="res-items">${vegs.map(v => escapeHtml(v.name)).join("、 ")}</div>
+              <div class="res-tip">★ <strong>外掛策略</strong>：蔬菜分開裝，避免在保溫罐內悶 5 小時變黃變爛，保持清脆爽口！</div>
+            </div>
+          `;
+        }
+
+        // 上午水果點心
+        if (fruits.length > 0) {
+          html += `
+            <div class="res-card type-snack">
+              <div class="res-header">
+                <span class="res-title">🍎 上午水果點心</span>
+                <span class="res-tag">容器: tanjiae 1 Cup 不鏽鋼盒</span>
+              </div>
+              <div class="res-items">${fruits.map(f => escapeHtml(f.name)).join("、 ")}</div>
+              <div class="res-tip">★ 不鏽鋼密封保鮮，草莓、藍莓、葡萄不壓爛。</div>
+            </div>
+          `;
+        }
+      } else {
+        // 冷食模式：Bentgo Chill 4 格盒整合全包主食、蛋白質、蔬菜與水果
+        const coldItems = [
+          ...mainItems,
+          ...vegs.map(v => v.name),
+          ...fruits.map(f => f.name)
+        ];
+        if (coldItems.length > 0) {
+          html += `
+            <div class="res-card type-cold">
+              <div class="res-header">
+                <span class="res-title">🍱 中午便當（一盒全包冷食）</span>
+                <span class="res-tag">容器: Bentgo Chill 4格盒</span>
+              </div>
+              <div class="res-items"><strong>${coldItems.map(escapeHtml).join(" ＋ ")}</strong></div>
+              <div class="res-tip">★ <strong>4 格整合保鮮</strong>：主食、肉類、蔬果分格擺放，自帶冷凍冰磚保鮮 5 小時，一盒搞定免帶外掛！</div>
+            </div>
+          `;
+        }
+      }
+
+      // 點心判斷：GoBe vs b.box (納入 DAIRY 乳品起司、SNACK 零食、DRIED_FRUIT 果乾)
+      const dryFingerSnacks = activeList.filter(f => f.cat === "SNACK" || f.cat === "DRIED_FRUIT" || f.cat === "DAIRY");
+      const hasDairy = dryFingerSnacks.some(f => f.cat === "DAIRY");
+      if (dryFingerSnacks.length >= 3) {
+        html += `
+          <div class="res-card type-gobe">
+            <div class="res-header">
+              <span class="res-title">🎡 綜合趣味點心盤 (符合 3 種以上零嘴)</span>
+              <span class="res-tag">容器: GoBe 5格旋轉盒</span>
+            </div>
+            <div class="res-items">${dryFingerSnacks.map(s => escapeHtml(s.name)).join("、 ")}</div>
+            <div class="res-tip">★ 少量多樣化果乾與小點心，按鈕旋轉吃，趣味度滿分！${hasDairy ? '<br>• <em>含起司乳品，炎熱天氣建議便當袋內備小保冷劑。</em>' : ''}</div>
+          </div>
+        `;
+      } else if (dryFingerSnacks.length > 0) {
+        html += `
+          <div class="res-card type-snack">
+            <div class="res-header">
+              <span class="res-title">🥨 下午飽足大點心 (1.75 Cup 滿裝)</span>
+              <span class="res-tag">容器: b.box 雙格盒</span>
+            </div>
+            <div class="res-items">${dryFingerSnacks.map(s => escapeHtml(s.name)).join("、 ")}</div>
+            <div class="res-tip">★ <strong>熱量平衡關鍵</strong>：中午後如果餓了，靠 b.box 大容量把下午的體力補齊！${hasDairy ? '<br>• <em>含起司乳品，炎熱天氣建議便當袋內備小保冷劑。</em>' : ''}</div>
+          </div>
+        `;
+      }
+
+      packDiv.innerHTML = html;
+    }
+
+    // 啟動頁面渲染
+    renderPools();
+  </script>
+</body>
+</html>
